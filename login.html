@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173f35">
+  <title>Sign in · LanguageBridge</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body class="auth-page">
+  <main class="auth-shell">
+
+    <section class="auth-brand">
+      <a href="login.html" class="brand-lockup">
+        <span class="brand-mark">L</span>
+        <span>LanguageBridge</span>
+      </a>
+
+      <div class="auth-brand-content">
+        <span class="eyebrow">LANGUAGE • PEOPLE • CONNECTION</span>
+
+        <h1>
+          Speak more.<br>
+          <em>Connect deeper.</em>
+        </h1>
+
+        <p>
+          Find people who speak the languages you're learning,
+          practice naturally, and build meaningful friendships.
+        </p>
+
+        <div class="brand-points">
+          <div>
+            <span class="point-icon">◎</span>
+            <span>Find language partners</span>
+          </div>
+
+          <div>
+            <span class="point-icon">↗</span>
+            <span>Practice through real conversations</span>
+          </div>
+
+          <div>
+            <span class="point-icon">♡</span>
+            <span>Build genuine connections</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="auth-footer-note">
+        Your language journey starts with a conversation.
+      </p>
+    </section>
+
+    <section class="auth-card">
+      <div class="auth-card-top">
+        <span class="mobile-brand-mark">L</span>
+
+        <div>
+          <p class="eyebrow">WELCOME BACK</p>
+          <h2>Sign in</h2>
+          <p class="muted">Continue where you left off.</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="form">
+
+        <label>
+          <span>Email</span>
+          <input
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+            autocomplete="email"
+          >
+        </label>
+
+        <label>
+          <span>Password</span>
+
+          <div class="password-field">
+            <input
+              id="loginPassword"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              required
+              autocomplete="current-password"
+            >
+
+            <button
+              type="button"
+              class="password-toggle"
+              data-target="loginPassword"
+              aria-label="Show password"
+            >
+              Show
+            </button>
+          </div>
+        </label>
+
+        <button class="btn primary full" type="submit">
+          <span>Sign in</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <p id="formError" class="error"></p>
+      </form>
+
+      <div class="auth-divider">
+        <span>New to LanguageBridge?</span>
+      </div>
+
+      <a href="register.html" class="btn secondary full">
+        Create an account
+      </a>
+
+      <p class="auth-legal">
+        By continuing, you agree to use LanguageBridge respectfully
+        and help create a welcoming learning community.
+      </p>
+    </section>
+
+  </main>
+
+  <script src="js/api.js" defer></script>
+  <script src="js/common.js" defer></script>
+  <script src="js/auth.js" defer></script>
+</body>
+</html>

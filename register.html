@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173f35">
+  <title>Create account · LanguageBridge</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+
+<body class="auth-page">
+  <main class="auth-shell">
+
+    <section class="auth-brand">
+      <a href="login.html" class="brand-lockup">
+        <span class="brand-mark">L</span>
+        <span>LanguageBridge</span>
+      </a>
+
+      <div class="auth-brand-content">
+        <span class="eyebrow">YOUR LANGUAGE JOURNEY</span>
+
+        <h1>
+          Learn together.<br>
+          <em>Grow together.</em>
+        </h1>
+
+        <p>
+          Create your profile, tell us what you speak,
+          what you're learning, and start meeting people.
+        </p>
+
+        <div class="language-showcase">
+          <span>English</span>
+          <span>Español</span>
+          <span>Français</span>
+          <span>العربية</span>
+          <span>Türkçe</span>
+        </div>
+      </div>
+
+      <p class="auth-footer-note">
+        One conversation can change the way you learn.
+      </p>
+    </section>
+
+    <section class="auth-card register-card">
+
+      <div class="auth-card-top">
+        <span class="mobile-brand-mark">L</span>
+
+        <div>
+          <p class="eyebrow">GET STARTED</p>
+          <h2>Create your account</h2>
+          <p class="muted">A few details and you're ready to go.</p>
+        </div>
+      </div>
+
+      <form id="registerForm" class="form">
+
+        <div class="form-grid">
+          <label>
+            <span>Username</span>
+            <input
+              name="username"
+              placeholder="language_learner"
+              required
+              autocomplete="username"
+            >
+          </label>
+
+          <label>
+            <span>Display name</span>
+            <input
+              name="displayName"
+              placeholder="Your name"
+              required
+              autocomplete="name"
+            >
+          </label>
+        </div>
+
+        <label>
+          <span>Email</span>
+          <input
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            required
+            autocomplete="email"
+          >
+        </label>
+
+        <label>
+          <span>Password</span>
+
+          <div class="password-field">
+            <input
+              id="registerPassword"
+              name="password"
+              type="password"
+              minlength="8"
+              placeholder="At least 8 characters"
+              required
+              autocomplete="new-password"
+            >
+
+            <button
+              type="button"
+              class="password-toggle"
+              data-target="registerPassword"
+            >
+              Show
+            </button>
+          </div>
+        </label>
+
+        <!--
+          NOTE: The "Account type" selector that shipped here previously let
+          any visitor register themselves as an ADMIN. Account roles must
+          never be a client-supplied field on a public sign-up form — every
+          new registration is a regular USER. Admin accounts should only be
+          promoted server-side by an existing administrator.
+        -->
+
+        <div class="form-grid">
+
+          <label>
+            <span>I speak</span>
+
+            <select name="nativeLanguage" required>
+              <option value="">Select language</option>
+              <option value="ENGLISH">English</option>
+              <option value="SPANISH">Spanish</option>
+              <option value="FRENCH">French</option>
+              <option value="ARABIC">Arabic</option>
+              <option value="TURKISH">Turkish</option>
+            </select>
+          </label>
+
+          <label>
+            <span>I'm learning</span>
+
+            <select name="learningLanguage" required>
+              <option value="">Select language</option>
+              <option value="ENGLISH">English</option>
+              <option value="SPANISH">Spanish</option>
+              <option value="FRENCH">French</option>
+              <option value="ARABIC">Arabic</option>
+              <option value="TURKISH">Turkish</option>
+            </select>
+          </label>
+
+        </div>
+
+        <label>
+          <span>Bio <small>Optional</small></span>
+
+          <textarea
+            name="bio"
+            rows="3"
+            placeholder="Tell people a little about yourself..."
+          ></textarea>
+        </label>
+
+        <button class="btn primary full" type="submit">
+          <span>Create account</span>
+          <span class="btn-arrow">→</span>
+        </button>
+
+        <p id="formError" class="error"></p>
+
+      </form>
+
+      <div class="auth-divider">
+        <span>Already have an account?</span>
+      </div>
+
+      <a href="login.html" class="btn secondary full">
+        Sign in instead
+      </a>
+
+    </section>
+
+  </main>
+
+  <script src="js/api.js" defer></script>
+  <script src="js/common.js" defer></script>
+  <script src="js/auth.js" defer></script>
+</body>
+</html>
