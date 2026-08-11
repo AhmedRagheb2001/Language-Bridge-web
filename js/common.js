@@ -206,6 +206,12 @@ const NAV_ITEMS = [
     icon: "user-plus"
   },
   {
+    id: "notifications",
+    label: "Alerts",
+    href: "notifications.html",
+    icon: "bell"
+  },
+  {
     id: "chats",
     label: "Messages",
     href: "chat.html",
@@ -216,6 +222,12 @@ const NAV_ITEMS = [
     label: "Profile",
     href: "profile.html",
     icon: "user"
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    href: "settings.html",
+    icon: "settings"
   }
 ];
 
@@ -258,6 +270,13 @@ function navIcon(icon) {
     message: `
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.4 8.4 0 0 1-4-.9L4 20l1.3-3.3A7.2 7.2 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7Z"/>
+      </svg>
+    `,
+
+    bell: `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18 9a6 6 0 0 0-12 0c0 7-2.5 7.5-2.5 7.5h17S18 16 18 9Z"/>
+        <path d="M10 20a2.2 2.2 0 0 0 4 0"/>
       </svg>
     `,
 
@@ -462,9 +481,9 @@ function shell(active = "home") {
 
               <a
                 class="account-settings-link"
-                href="profile.html"
-                aria-label="Open profile"
-                title="Profile"
+                href="settings.html"
+                aria-label="Open settings"
+                title="Settings"
               >
                 ${navIcon("settings")}
               </a>

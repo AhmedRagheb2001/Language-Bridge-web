@@ -123,6 +123,10 @@ function renderPost(post) {
     `
     : "";
 
+  const me = currentUser();
+  const canEdit = me && (me.role === "ADMIN" || post.user?.id === me.id || post.userId === me.id);
+  const totalLikes = post.totalLikes ?? post._count?.likes;
+
   return `
     <article class="card post" data-post-id="${escapeHtml(post.id)}">
 
@@ -147,7 +151,9 @@ function renderPost(post) {
       <div class="post-content">
 
         <h3>
-          ${escapeHtml(post.title)}
+          <a href="post.html?post=${encodeURIComponent(post.id)}" class="post-title-link">
+            ${escapeHtml(post.title)}
+          </a>
         </h3>
 
         ${
@@ -168,7 +174,7 @@ function renderPost(post) {
           data-id="${escapeHtml(post.id)}"
         >
           <span class="action-icon">♡</span>
-          <span>Like</span>
+          <span>${totalLikes !== undefined ? escapeHtml(totalLikes) : "Like"}</span>
         </button>
 
         <button
@@ -179,6 +185,33 @@ function renderPost(post) {
           <span class="action-icon">○</span>
           <span>Comments</span>
         </button>
+
+        <a class="icon-btn" href="post.html?post=${encodeURIComponent(post.id)}">
+          <span class="action-icon">↗</span>
+          <span>Open</span>
+        </a>
+
+        ${canEdit ? `
+          <button
+            class="icon-btn"
+            data-action="edit-post"
+            data-id="${escapeHtml(post.id)}"
+          >
+            <span class="action-icon">✎</span>
+            <span>Edit</span>
+          </button>
+
+          <button
+            class="icon-btn danger-icon"
+            data-action="delete-post"
+            data-id="${escapeHtml(post.id)}"
+            title="Delete post"
+            aria-label="Delete post"
+          >
+            <span class="action-icon">🗑</span>
+            <span>Delete</span>
+          </button>
+        ` : ""}
 
       </div>
 
@@ -211,6 +244,57 @@ function attachPostEvents() {
       showComments(button.dataset.id);
     });
   });
+
+  document.querySelectorAll("[data-action='edit-post']").forEach(button => {
+    button.addEventListener("click", () => openEditPostModal(button.dataset.id));
+  });
+
+  document.querySelectorAll("[data-action='delete-post']").forEach(button => {
+    button.addEventListener("click", () => deletePost(button.dataset.id, button));
+  });
+}
+
+
+/* ---------------------------------------------------------
+   DELETE POST
+--------------------------------------------------------- */
+
+async function deletePost(postId, button) {
+  if (!postId) return;
+
+  const confirmed = confirm(
+    "Delete this post? This action cannot be undone."
+  );
+
+  if (!confirmed) return;
+
+  const card = button.closest(".post");
+
+  try {
+    button.disabled = true;
+
+    await api.delete(`/posts/${postId}`);
+
+    if (card) {
+      card.classList.add("is-removing");
+
+      setTimeout(() => {
+        card.remove();
+
+        const remaining = document.querySelectorAll(".post").length;
+
+        if (remaining === 0) {
+          renderPosts([]);
+        }
+      }, 280);
+    }
+
+    toast("Post deleted");
+  } catch (error) {
+    toast(error.message || "Unable to delete post.");
+
+    button.disabled = false;
+  }
 }
 
 
@@ -222,47 +306,34 @@ async function toggleLike(postId, button) {
   if (button.dataset.loading === "true") return;
 
   button.dataset.loading = "true";
-  button.disabled = true;
+  const wasLiked = button.classList.contains("liked");
+  const currentText = button.querySelector("span:last-child")?.textContent || "Like";
+  const currentCount = Number(currentText);
+  const optimisticCount = Number.isFinite(currentCount)
+    ? Math.max(0, currentCount + (wasLiked ? -1 : 1))
+    : undefined;
+
+  updateLikeButton(button, !wasLiked, optimisticCount);
 
   try {
-    const response = await api.post(
-      `/posts/${postId}/likes`,
-      {}
-    );
+    const response = wasLiked
+      ? await api.delete(`/posts/${postId}/likes`)
+      : await api.post(`/posts/${postId}/likes`, {});
 
     updateLikeButton(
       button,
-      true,
+      !wasLiked,
       response.totalLikes
     );
 
-    toast("Post liked");
+    toast(wasLiked ? "Post unliked" : "Post liked");
 
   } catch (error) {
-
-    if (error.status === 409) {
-      try {
-        const response = await api.delete(
-          `/posts/${postId}/likes`
-        );
-
-        updateLikeButton(
-          button,
-          false,
-          response.totalLikes
-        );
-
-      } catch (deleteError) {
-        toast(deleteError.message);
-      }
-
-    } else {
-      toast(error.message);
-    }
+    updateLikeButton(button, wasLiked, Number.isFinite(currentCount) ? currentCount : undefined);
+    toast(error.message);
 
   } finally {
     button.dataset.loading = "false";
-    button.disabled = false;
   }
 }
 
@@ -691,6 +762,7 @@ function previewPostImage(input, modal) {
   preview.innerHTML = `
     <div class="preview-label">
       Image preview
+      <button type="button" class="preview-remove" data-action="remove-preview">Remove</button>
     </div>
 
     <img
@@ -698,6 +770,13 @@ function previewPostImage(input, modal) {
       alt="Selected image preview"
     >
   `;
+
+  preview.querySelector("[data-action='remove-preview']")?.addEventListener("click", () => {
+    if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+    input.value = "";
+    preview.innerHTML = "";
+    preview.classList.add("hidden");
+  });
 }
 
 
@@ -765,4 +844,113 @@ async function submitPost(event, modal) {
     publishButton.textContent =
       "Publish post";
   }
+}
+
+
+async function openEditPostModal(postId) {
+  if (!postId || document.querySelector(".modal")) return;
+
+  try {
+    const post = await api.get(`/posts/${encodeURIComponent(postId)}`);
+    openPostEditor(post);
+  } catch (error) {
+    toast(error.message || "Unable to load this post.");
+  }
+}
+
+
+function openPostEditor(post) {
+  const modal = document.createElement("div");
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-card post-modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Post settings</span>
+          <h2>Edit post</h2>
+        </div>
+        <button class="icon-btn modal-close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <form id="editPostForm" class="form">
+        <label>Title
+          <input name="title" value="${escapeHtml(post.title || "")}" maxlength="180" required>
+        </label>
+        <label>Content
+          <textarea name="content" rows="6" maxlength="5000">${escapeHtml(post.content || "")}</textarea>
+        </label>
+        <label class="file-field">
+          <span>Replace picture</span>
+          <input name="postPicture" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+          <small>Choose a new picture, or remove the current one below.</small>
+        </label>
+        <div id="postPreview" class="upload-preview ${post.postPictureUrl ? "" : "hidden"}">
+          ${post.postPictureUrl ? `<div class="preview-label">Current image</div><img src="${escapeHtml(post.postPictureUrl)}" alt="Current post image">` : ""}
+        </div>
+        <p id="postErr" class="error"></p>
+        <div class="modal-actions">
+          ${post.postPictureUrl ? `<button type="button" class="btn danger" id="removePostPicture">Remove picture</button>` : ""}
+          <button type="button" class="btn ghost modal-cancel">Cancel</button>
+          <button type="submit" class="btn primary" id="savePost">Save changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const form = modal.querySelector("#editPostForm");
+  const fileInput = form.elements.postPicture;
+  const close = () => closePostModal(modal);
+
+  modal.querySelector(".modal-close").addEventListener("click", close);
+  modal.querySelector(".modal-cancel").addEventListener("click", close);
+  modal.addEventListener("click", event => {
+    if (event.target === modal) close();
+  });
+  fileInput.addEventListener("change", () => previewPostImage(fileInput, modal));
+  modal.querySelector("#removePostPicture")?.addEventListener("click", async buttonEvent => {
+    const button = buttonEvent.currentTarget;
+    button.disabled = true;
+    try {
+      await api.delete(`/posts/${encodeURIComponent(post.id)}/postPicture`);
+      modal.querySelector("#postPreview").innerHTML = "";
+      modal.querySelector("#postPreview").classList.add("hidden");
+      button.remove();
+      toast("Post picture removed");
+      await loadFeed();
+    } catch (error) {
+      toast(error.message || "Unable to remove picture.");
+      button.disabled = false;
+    }
+  });
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const errorElement = modal.querySelector("#postErr");
+    const saveButton = modal.querySelector("#savePost");
+    const title = form.elements.title.value.trim();
+    const content = form.elements.content.value.trim();
+    const picture = fileInput.files?.[0];
+
+    errorElement.textContent = "";
+    saveButton.disabled = true;
+    saveButton.textContent = "Saving...";
+
+    try {
+      await api.patch(`/posts/${encodeURIComponent(post.id)}`, { title, content });
+      if (picture) {
+        const formData = new FormData();
+        formData.append("postPicture", picture);
+        await api.patch(`/posts/${encodeURIComponent(post.id)}/postPicture`, formData);
+      }
+      closePostModal(modal);
+      toast("Post updated");
+      await loadFeed();
+    } catch (error) {
+      errorElement.textContent = error.message || "Unable to update post.";
+      saveButton.disabled = false;
+      saveButton.textContent = "Save changes";
+    }
+  });
 }

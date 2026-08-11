@@ -127,6 +127,22 @@ function normalizeList(response) {
     return response.content;
   }
 
+  if (Array.isArray(response?.receivedRequests)) {
+    return response.receivedRequests;
+  }
+
+  if (Array.isArray(response?.sentRequests)) {
+    return response.sentRequests;
+  }
+
+  if (Array.isArray(response?.friendRequests)) {
+    return response.friendRequests;
+  }
+
+  if (Array.isArray(response?.requests)) {
+    return response.requests;
+  }
+
   return [];
 }
 
@@ -145,7 +161,10 @@ function renderReceived(items) {
   if (!items.length) {
     container.innerHTML = `
       <div class="card empty">
-        No received requests.
+        <div class="empty-icon">◎</div>
+        <h3>No received requests</h3>
+        <p>When people want to connect, their requests will appear here.</p>
+        <a href="users.html" class="btn secondary">Find people</a>
       </div>
     `;
     return;
@@ -215,6 +234,21 @@ function renderReceived(items) {
               `
           }
 
+          ${
+            requestId
+              ? `
+                <button
+                  class="btn ghost request-action"
+                  type="button"
+                  data-action="delete"
+                  data-request-id="${escapeHtml(String(requestId))}"
+                >
+                  Delete
+                </button>
+              `
+              : ""
+          }
+
         </div>
 
       </div>
@@ -239,7 +273,10 @@ function renderSent(items) {
   if (!items.length) {
     container.innerHTML = `
       <div class="card empty">
-        No sent requests.
+        <div class="empty-icon">↗</div>
+        <h3>No sent requests</h3>
+        <p>Discover profiles and send a request to start connecting.</p>
+        <a href="users.html" class="btn primary">Discover profiles</a>
       </div>
     `;
     return;
@@ -300,6 +337,21 @@ function renderSent(items) {
               `
           }
 
+          ${
+            requestId
+              ? `
+                <button
+                  class="btn ghost request-action"
+                  type="button"
+                  data-action="delete"
+                  data-request-id="${escapeHtml(String(requestId))}"
+                >
+                  Delete
+                </button>
+              `
+              : ""
+          }
+
         </div>
 
       </div>
@@ -343,7 +395,8 @@ async function reqAction(id, action, button) {
   const allowedActions = [
     "accept",
     "reject",
-    "cancel"
+    "cancel",
+    "delete"
   ];
 
   if (!allowedActions.includes(action)) {
@@ -364,10 +417,16 @@ async function reqAction(id, action, button) {
       button.textContent = "Please wait...";
     }
 
-    await api.patch(
-      `/friend-requests/${encodeURIComponent(id)}/${action}`,
-      {}
-    );
+    if (action === "delete") {
+      await api.delete(
+        `/friend-requests/${encodeURIComponent(id)}`
+      );
+    } else {
+      await api.patch(
+        `/friend-requests/${encodeURIComponent(id)}/${action}`,
+        {}
+      );
+    }
 
     switch (action) {
       case "accept":
@@ -380,6 +439,10 @@ async function reqAction(id, action, button) {
 
       case "cancel":
         toast("Friend request cancelled.");
+        break;
+
+      case "delete":
+        toast("Friend request deleted.");
         break;
     }
 
@@ -419,4 +482,8 @@ function rejectReq(id, button) {
 
 function cancelReq(id, button) {
   return reqAction(id, "cancel", button);
+}
+
+function deleteReq(id, button) {
+  return reqAction(id, "delete", button);
 }

@@ -234,7 +234,7 @@ function renderProfilePosts(posts) {
       const content = post.content || "";
 
       return `
-        <article class="card post profile-post">
+        <article class="card post profile-post clickable-card" onclick="location.href='post.html?post=${encodeURIComponent(post.id)}'">
 
           <div class="post-meta-row">
             <div class="post-mini-author">
@@ -351,6 +351,12 @@ function editProfile() {
                 hidden
               >
             </label>
+
+            ${profile.profilePictureUrl ? `
+              <button class="btn danger" type="button" id="removeProfilePicture">
+                Remove picture
+              </button>
+            ` : ""}
           </div>
 
         </div>
@@ -490,6 +496,25 @@ function editProfile() {
     };
 
     reader.readAsDataURL(file);
+  });
+
+  modal.querySelector("#removeProfilePicture")?.addEventListener("click", async event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = "Removing...";
+
+    try {
+      await api.delete("/profiles/me/profilePicture");
+      const updatedUser = await loadMe();
+      renderProfile(updatedUser);
+      preview.innerHTML = avatarHtml(updatedUser.profile || {}, "avatar lg");
+      button.remove();
+      toast("Profile picture removed");
+    } catch (error) {
+      toast(error.message || "Unable to remove profile picture.");
+      button.disabled = false;
+      button.textContent = "Remove picture";
+    }
   });
 
   form.addEventListener("submit", async event => {

@@ -114,10 +114,14 @@ function renderFriends(friends) {
         )}">
 
           <div class="friend-identity">
-            ${avatarHtml(profile, "avatar")}
+            <a href="profile-view.html?user=${encodeURIComponent(friend.id)}" aria-label="Open ${escapeHtml(name)} profile">
+              ${avatarHtml(profile, "avatar")}
+            </a>
 
             <div class="friend-details">
-              <strong>${escapeHtml(name)}</strong>
+              <a class="profile-card-link" href="profile-view.html?user=${encodeURIComponent(friend.id)}">
+                <strong>${escapeHtml(name)}</strong>
+              </a>
 
               ${
                 friend.username
