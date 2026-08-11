@@ -369,7 +369,8 @@ h3 {
   font-weight: 700;
 }
 
-.brand-mark {
+.brand-mark,
+.brand-logo {
   width: 58px;
   height: 58px;
   display: grid;
@@ -388,7 +389,15 @@ h3 {
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-.mobile-brand-mark {
+.brand-logo {
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
+}
+
+.mobile-brand-mark,
+.mobile-brand-logo {
   display: none;
   width: 42px;
   height: 42px;
@@ -400,6 +409,11 @@ h3 {
   font-size: 19px;
   font-weight: 800;
   flex-shrink: 0;
+}
+
+.mobile-brand-logo {
+  background: transparent;
+  object-fit: contain;
 }
 
 .auth-card {
@@ -979,6 +993,11 @@ h3 {
   font-weight: 800;
 }
 
+.initial-loader .loader-logo {
+  background: transparent;
+  object-fit: contain;
+}
+
 .initial-loader strong {
   display: block;
   color: var(--text);
@@ -1056,6 +1075,12 @@ h3 {
   font-weight: 800;
 
   box-shadow: 0 5px 12px rgba(23, 63, 53, 0.15);
+}
+
+.top-mark {
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
 }
 
 .top-actions {
@@ -2819,7 +2844,8 @@ h3 {
     font-size: 25px;
   }
 
-  .mobile-brand-mark {
+  .mobile-brand-mark,
+  .mobile-brand-logo {
     display: flex;
   }
 

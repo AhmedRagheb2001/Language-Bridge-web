@@ -343,7 +343,7 @@ function shell(active = "home") {
             href="index.html"
             aria-label="LanguageBridge home"
           >
-            <span class="top-mark">L</span>
+            <img class="top-mark" src="assets/logo.png" alt="LanguageBridge logo">
 
             <span class="top-brand-text">
               <strong>Language</strong><span>Bridge</span>
