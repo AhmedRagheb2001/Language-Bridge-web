@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>
     </div>
 
-    <div id="userResults" class="users-grid">
+    <div id="userResults" class="users-grid stagger">
       <div class="card loading-card">
         <div class="spinner"></div>
         <span>Loading people...</span>

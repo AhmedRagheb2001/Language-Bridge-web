@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       </div>
 
-      <div id="friends" class="friends-list">
+      <div id="friends" class="friends-list stagger">
         <div class="loading-state">
           <span class="spinner"></span>
           <span>Loading your friends...</span>

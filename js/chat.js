@@ -379,7 +379,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           </div>
         </div>
 
-        <div id="chatList" class="chat-list">
+        <div id="chatList" class="chat-list stagger">
           <div class="loader">
             <span class="loader-spinner"></span>
             Loading conversations...

@@ -765,6 +765,7 @@ async function initShell(active = "home") {
 
   setupMobileNavigation();
   setupPageTransitions();
+  setupScrollTopButton();
 
   // Open the global presence socket so the user is marked
   // online for as long as they are logged in.
@@ -961,6 +962,34 @@ function setupPageTransitions() {
 
     document.body.classList.add("page-leaving");
   });
+}
+
+function setupScrollTopButton() {
+  if (document.getElementById("scrollTopBtn")) return;
+
+  const btn = document.createElement("button");
+  btn.id = "scrollTopBtn";
+  btn.className = "scroll-top-btn";
+  btn.type = "button";
+  btn.setAttribute("aria-label", "Scroll to top");
+  btn.innerHTML = "&#8593;";
+
+  btn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  document.body.appendChild(btn);
+
+  const onScroll = () => {
+    if (window.scrollY > 400) {
+      btn.classList.add("show");
+    } else {
+      btn.classList.remove("show");
+    }
+  };
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
 }
 
 
