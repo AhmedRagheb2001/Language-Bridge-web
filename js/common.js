@@ -229,11 +229,109 @@ function requireAuth() {
 
 
 function logout() {
+  // Close the live presence socket immediately so the user
+  // shows as offline right away instead of on the next ping.
+  if (window.appSocket) {
+    try {
+      window.appSocket.disconnect();
+    } catch {
+      /* ignore */
+    }
+  }
+
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("currentUser");
 
   window.location.replace("login.html");
+}
+
+
+/* =========================================================
+   GLOBAL PRESENCE SOCKET
+   -----------------------------------------------------------
+   A single Socket.IO connection is opened on every
+   authenticated page (via initShell) so a user is considered
+   ONLINE from login until logout, not only while in a chat.
+   The backend already marks a user online on socket connect
+   and offline on socket disconnect, so no backend change is
+   required for this behaviour.
+   ========================================================= */
+
+window.appSocket = null;
+window.appSocketConnected = false;
+
+
+async function ensureSocketIO() {
+  if (typeof io === "function") return;
+
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+
+    script.src = "https://cdn.socket.io/4.8.3/socket.io.min.js";
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(new Error("Failed to load the Socket.IO client."));
+
+    document.head.appendChild(script);
+  });
+}
+
+
+async function connectAppSocket() {
+  if (window.appSocket) return window.appSocket;
+
+  try {
+    await ensureSocketIO();
+  } catch (error) {
+    console.warn("Socket.IO client unavailable:", error.message);
+    return null;
+  }
+
+  let base = String(API_BASE || "");
+
+  if (base.endsWith("/api/v1")) {
+    base = base.slice(0, -"/api/v1".length);
+  }
+
+  base = base.replace(/\/+$/, "");
+
+  const socket = io(base, {
+    path: "/api/socket-io/socket.io",
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 8,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
+    auth: {
+      token: localStorage.getItem("accessToken") || null
+    },
+    autoConnect: true
+  });
+
+  socket.on("connect", () => {
+    window.appSocketConnected = true;
+  });
+
+  socket.on("disconnect", () => {
+    window.appSocketConnected = false;
+  });
+
+  socket.on("connect_error", () => {
+    window.appSocketConnected = false;
+  });
+
+  window.appSocket = socket;
+
+  return socket;
+}
+
+
+async function ensureAppSocket() {
+  if (window.appSocket) return window.appSocket;
+
+  return connectAppSocket();
 }
 
 
@@ -602,6 +700,12 @@ async function initShell(active = "home") {
 
   setupMobileNavigation();
   setupPageTransitions();
+
+  // Open the global presence socket so the user is marked
+  // online for as long as they are logged in.
+  connectAppSocket().catch(error =>
+    console.warn("Presence socket unavailable:", error)
+  );
 
   try {
     /*

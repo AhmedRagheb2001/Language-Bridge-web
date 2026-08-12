@@ -129,6 +129,7 @@ function renderPost(post) {
     String(post.user?.id || post.userId) === String(me.id)
   );
   const totalLikes = post.totalLikes ?? post._count?.likes;
+  const liked = Boolean(post.likedByMe ?? post.isLiked);
 
   return `
     <article class="card post" data-post-id="${escapeHtml(post.id)}">
@@ -172,11 +173,11 @@ function renderPost(post) {
       <div class="post-actions">
 
         <button
-          class="icon-btn like-btn"
+          class="icon-btn like-btn ${liked ? "liked" : ""}"
           data-action="like"
           data-id="${escapeHtml(post.id)}"
         >
-          <span class="action-icon">♡</span>
+          <span class="action-icon">${liked ? "♥" : "♡"}</span>
           <span>${totalLikes !== undefined ? escapeHtml(totalLikes) : "Like"}</span>
         </button>
 
@@ -325,7 +326,7 @@ async function toggleLike(postId, button) {
 
     updateLikeButton(
       button,
-      !wasLiked,
+      response.likedByMe ?? !wasLiked,
       response.totalLikes
     );
 

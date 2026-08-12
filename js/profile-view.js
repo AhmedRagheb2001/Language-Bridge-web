@@ -236,6 +236,15 @@ function renderPublicProfile(profile, userId, relationship) {
       </div>
       <div class="profile-detail-actions">
         ${relationshipAction(userId, relationship)}
+        ${isAdminViewer(userId) ? `
+          <button
+            class="btn danger"
+            data-profile-action="delete-user"
+            data-user-id="${escapeHtml(userId)}"
+          >
+            Delete user
+          </button>
+        ` : ""}
       </div>
     </div>
   `;
@@ -286,10 +295,56 @@ function relationshipAction(userId, relationship) {
 }
 
 
+function isAdminViewer(userId) {
+  const me = currentUser();
+
+  return Boolean(
+    me &&
+    me.role === "ADMIN" &&
+    String(me.id) !== String(userId)
+  );
+}
+
+
+async function deleteUser(userId, button) {
+  const confirmed = await confirmDialog(
+    "Delete this user account? This permanently removes the user and all of their data.",
+    { confirmText: "Delete user", danger: true }
+  );
+
+  if (!confirmed) return;
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Deleting...";
+  }
+
+  try {
+    await api.delete(`/users/${encodeURIComponent(userId)}`);
+
+    toast("User deleted");
+
+    location.replace("users.html");
+  } catch (error) {
+    toast(error.message || "Unable to delete user.");
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Delete user";
+    }
+  }
+}
+
+
 async function handleRelationshipAction(userId, button) {
   const action = button.dataset.profileAction;
   const requestIdValue = button.dataset.requestId;
   button.disabled = true;
+
+  if (action === "delete-user") {
+    await deleteUser(userId, button);
+    return;
+  }
 
   try {
     if (action === "message") {

@@ -47,6 +47,7 @@ function renderPostDetail(post) {
   const profile = post.user?.profile || {};
   const displayName = profile.displayName || post.user?.username || "LanguageBridge user";
   const totalLikes = post.totalLikes ?? 0;
+  const liked = Boolean(post.likedByMe ?? post.isLiked);
   const me = currentUser();
   const canEdit = me && (
     me.role === "ADMIN" ||
@@ -72,8 +73,8 @@ function renderPostDetail(post) {
       </div>
 
       <div class="post-actions">
-        <button class="icon-btn like-btn" id="detailLike" type="button">
-          <span class="action-icon">♡</span><span>${escapeHtml(totalLikes)}</span>
+        <button class="icon-btn like-btn ${liked ? "liked" : ""}" id="detailLike" type="button">
+          <span class="action-icon">${liked ? "♥" : "♡"}</span><span>${escapeHtml(totalLikes)}</span>
         </button>
         ${canEdit ? `<button class="icon-btn" type="button" id="editDetailPost"><span class="action-icon">✎</span><span>Edit</span></button>` : ""}
         ${canEdit ? `<button class="icon-btn danger-icon" type="button" id="deleteDetailPost"><span class="action-icon">🗑</span><span>Delete</span></button>` : ""}
@@ -258,7 +259,7 @@ async function optimisticLike(postId, button) {
     const response = wasLiked
       ? await api.delete(`/posts/${encodeURIComponent(postId)}/likes`)
       : await api.post(`/posts/${encodeURIComponent(postId)}/likes`, {});
-    updateLike(button, !wasLiked, response.totalLikes ?? currentCount);
+    updateLike(button, response.likedByMe ?? !wasLiked, response.totalLikes ?? currentCount);
   } catch (error) {
     updateLike(button, wasLiked, currentCount);
     toast(error.message || "Unable to update like.");
