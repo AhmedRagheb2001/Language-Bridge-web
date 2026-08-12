@@ -12,12 +12,21 @@
 const SOCKET_EVENTS = {
   join: "join:chat",
   leave: "leave:chat",
-  message: "message:new"
+  message: "message:new",
+  typingStart: "typing:start",
+  typingStop: "typing:stop",
+  presence: "presence:update"
 };
 
 let socket = null;
 let socketConnected = false;
 let pollFallbackTimer = null;
+
+/* Typing indicator + presence state */
+let typingTimeout = null;
+let isTyping = false;
+let typingHideTimer = null;
+const presenceMap = new Map(); /* userId -> boolean (online) */
 
 function createSocket() {
   if (typeof io !== "function") {
@@ -96,6 +105,44 @@ function createSocket() {
     }
   );
 
+  /*
+   * Typing indicator events (emitted by other participants).
+   * Several names are tried so it works regardless of which
+   * convention the backend uses.
+   */
+  [
+    SOCKET_EVENTS.typingStart,
+    "typing",
+    "user:typing",
+    "typing:new"
+  ].forEach(name => {
+    socket.on(name, payload => handleTyping(payload));
+  });
+
+  [
+    SOCKET_EVENTS.typingStop,
+    "stopTyping",
+    "user:stopTyping",
+    "typing:stop"
+  ].forEach(name => {
+    socket.on(name, payload => handleStopTyping(payload));
+  });
+
+  /*
+   * Presence events. The backend should push the online/offline
+   * state of users, either as a single { userId, online } object
+   * or a bulk { users: [{ id, online }] } payload.
+   */
+  [
+    SOCKET_EVENTS.presence,
+    "user:online",
+    "user:offline",
+    "presence",
+    "presence:update"
+  ].forEach(name => {
+    socket.on(name, payload => handlePresence(payload));
+  });
+
   socket.connect();
 
   return socket;
@@ -144,6 +191,174 @@ function handleIncomingMessage(payload) {
 
   toast("New message");
 }
+
+
+/* =========================================================
+   TYPING INDICATOR
+   ========================================================= */
+
+function emitTyping() {
+  if (!socket || !socketConnected || !window.activeChat) return;
+
+  if (!isTyping) {
+    isTyping = true;
+
+    socket.emit(SOCKET_EVENTS.typingStart, {
+      chatId: window.activeChat,
+      userId: currentUser()?.id
+    });
+  }
+
+  // Reset the "stopped typing" timer on every keystroke.
+  clearTimeout(typingTimeout);
+
+  typingTimeout = setTimeout(() => {
+    stopTyping();
+  }, 1500);
+}
+
+
+function stopTyping() {
+  if (isTyping && socket && socketConnected && window.activeChat) {
+    socket.emit(SOCKET_EVENTS.typingStop, {
+      chatId: window.activeChat,
+      userId: currentUser()?.id
+    });
+  }
+
+  isTyping = false;
+
+  clearTimeout(typingTimeout);
+}
+
+
+function handleTyping(payload) {
+  const chatId = payload?.chatId || payload?.chat_id;
+
+  if (!chatId || String(chatId) !== String(window.activeChat)) return;
+
+  // Never show our own typing echo back to ourselves.
+  const senderId = payload?.userId || payload?.user_id || payload?.senderId;
+
+  if (senderId && String(senderId) === String(currentUser()?.id)) return;
+
+  showTypingIndicator();
+}
+
+
+function handleStopTyping(payload) {
+  const chatId = payload?.chatId || payload?.chat_id;
+
+  // A stop with no chatId (or matching this chat) clears the indicator.
+  if (chatId && String(chatId) !== String(window.activeChat)) return;
+
+  hideTypingIndicator();
+}
+
+
+function showTypingIndicator() {
+  const windowEl = document.querySelector(".chat-window");
+
+  if (!windowEl) return;
+
+  let el = document.getElementById("typingIndicator");
+
+  if (!el) {
+    el = document.createElement("div");
+
+    el.id = "typingIndicator";
+    el.className = "typing-indicator";
+
+    const name = escapeHtml(window.activeChatName || "Someone");
+
+    el.innerHTML = `
+      <span class="typing-dots">
+        <span></span>
+        <span></span>
+        <span></span>
+      </span>
+      <small>${name} is typing…</small>
+    `;
+
+    const composer = document.getElementById("composer");
+
+    if (composer) {
+      windowEl.insertBefore(el, composer);
+    } else {
+      windowEl.appendChild(el);
+    }
+  }
+
+  // Auto-hide in case the server never sends a "stop" event.
+  clearTimeout(typingHideTimer);
+
+  typingHideTimer = setTimeout(hideTypingIndicator, 3000);
+}
+
+
+function hideTypingIndicator() {
+  document.getElementById("typingIndicator")?.remove();
+}
+
+
+/* =========================================================
+   PRESENCE (ONLINE / OFFLINE)
+   ========================================================= */
+
+function handlePresence(payload) {
+  if (!payload) return;
+
+  if (Array.isArray(payload.users)) {
+    payload.users.forEach(user => {
+      const id = user?.id || user?.userId;
+
+      if (id != null) {
+        presenceMap.set(
+          String(id),
+          Boolean(user?.online ?? user?.isOnline)
+        );
+      }
+    });
+  } else {
+    const id =
+      payload?.userId ||
+      payload?.user_id ||
+      payload?.id;
+
+    const online =
+      payload?.online ??
+      payload?.isOnline ??
+      String(payload?.status || "").toUpperCase() === "ONLINE";
+
+    if (id != null) {
+      presenceMap.set(String(id), Boolean(online));
+    }
+  }
+
+  updateChatPresence();
+}
+
+
+function updateChatPresence() {
+  const friendId = window.activeChatFriendId;
+
+  if (!friendId) return;
+
+  const dot = document.querySelector("#chatPresence .online-dot");
+  const label = document.getElementById("chatPresenceLabel");
+
+  if (!dot || !label) return;
+
+  const online = presenceMap.get(String(friendId));
+
+  // undefined means "unknown" — leave the current state untouched.
+  if (online === undefined) return;
+
+  dot.classList.toggle("offline", !online);
+
+  label.textContent = online ? "Online" : "Offline";
+}
+
 
 function startPollFallback() {
   if (pollFallbackTimer || socketConnected) return;
@@ -345,6 +560,10 @@ function renderChats(chats = []) {
 async function openChat(id) {
   if (!id) return;
 
+  // Clear any stale typing state from the previous conversation.
+  stopTyping();
+  hideTypingIndicator();
+
   /*
    * Remember the previous chat before changing activeChat.
    */
@@ -430,7 +649,11 @@ async function openChat(id) {
       friend.username ||
       "User";
 
+    window.activeChatFriendId = friend.id;
+    window.activeChatName = displayName;
+
     renderChatHeader(displayName, profile);
+    updateChatPresence();
 
     const messages = response?.allMessages || [];
 
@@ -476,6 +699,10 @@ function renderChatHeader(name, profile) {
 
   if (!header) return;
 
+  const friendId = window.activeChatFriendId;
+  const known = friendId != null && presenceMap.has(String(friendId));
+  const online = known && presenceMap.get(String(friendId));
+
   header.innerHTML = `
     <div class="chat-header-user">
       ${avatarHtml(profile, "avatar")}
@@ -483,9 +710,9 @@ function renderChatHeader(name, profile) {
       <div class="chat-header-info">
         <strong>${escapeHtml(name)}</strong>
 
-        <span>
-          <span class="online-dot"></span>
-          Language partner
+        <span id="chatPresence">
+          <span class="online-dot ${known && !online ? "offline" : ""}"></span>
+          <span id="chatPresenceLabel">${known ? (online ? "Online" : "Offline") : "Language partner"}</span>
         </span>
       </div>
     </div>
@@ -581,6 +808,8 @@ function enableComposer() {
    */
   form.onsubmit = handleMessageSubmit;
 
+  input.addEventListener("input", emitTyping);
+
   requestAnimationFrame(() => {
     input.focus();
   });
@@ -615,6 +844,9 @@ async function handleMessageSubmit(event) {
     });
 
     input.value = "";
+
+    // We've sent the message, so we're no longer typing.
+    stopTyping();
 
     /*
      * Reload only the messages rather than rebuilding

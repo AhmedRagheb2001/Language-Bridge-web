@@ -36,7 +36,7 @@ This is intentionally framework-free. Notifications are not included because the
 
 This frontend is configured to use the deployed LanguageBridge backend by default:
 
-`https://language-bridge-orpin.vercel.app/api/v1`
+`https://language-bridge.onrender.com/api/v1`
 
 You can deploy this folder directly as a static Vercel project. No build command is required.
 

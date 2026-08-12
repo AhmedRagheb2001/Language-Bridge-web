@@ -49,6 +49,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 async function loadProfilePage(userId) {
+  connectPresenceSocket(userId);
+
   try {
     const [profileResponse, postsResponse, relationship] = await Promise.all([
       api.get(`/users/${encodeURIComponent(userId)}/profile`),
@@ -63,6 +65,108 @@ async function loadProfilePage(userId) {
   } catch (error) {
     showProfileError(error.message || "Unable to load this profile.");
   }
+}
+
+
+/* =========================================================
+   LIVE PRESENCE (ONLINE / OFFLINE)
+   -----------------------------------------------------------
+   Connects a Socket.IO socket purely to ask whether the
+   viewed user is online. No chat room is joined — we just
+   emit "presence:get" and listen for "presence:update".
+   ========================================================= */
+
+let presenceSocket = null;
+let viewedUserId = null;
+let latestPresence = null; /* null = unknown, true/false = known */
+
+
+function connectPresenceSocket(userId) {
+  if (!userId) return;
+
+  // Re-opening the same page (e.g. after accepting a request)
+  // should not stack multiple sockets.
+  if (presenceSocket) {
+    presenceSocket.disconnect();
+    presenceSocket = null;
+  }
+
+  if (typeof io !== "function") {
+    console.warn(
+      "Socket.IO client failed to load; live presence unavailable."
+    );
+    return;
+  }
+
+  viewedUserId = String(userId);
+
+  let base = String(API_BASE || "");
+
+  if (base.endsWith("/api/v1")) {
+    base = base.slice(0, -"/api/v1".length);
+  }
+
+  base = base.replace(/\/+$/, "");
+
+  presenceSocket = io(base, {
+    path: "/api/socket-io/socket.io",
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    auth: {
+      token: localStorage.getItem("accessToken") || null
+    },
+    autoConnect: true
+  });
+
+  presenceSocket.on("connect", () => {
+    presenceSocket.emit("presence:get", {
+      userId: viewedUserId
+    });
+  });
+
+  presenceSocket.on("presence:update", payload => {
+    const id =
+      payload?.userId ||
+      payload?.user_id ||
+      payload?.id;
+
+    if (id == null || String(id) !== String(viewedUserId)) {
+      return;
+    }
+
+    const online =
+      payload?.online ??
+      payload?.isOnline ??
+      String(payload?.status || "").toUpperCase() === "ONLINE";
+
+    updateProfilePresence(Boolean(online));
+  });
+
+  presenceSocket.on("connect_error", () => {
+    // Non-fatal: the profile still loads, the status just
+    // stays undetermined until a successful connection.
+  });
+}
+
+
+function updateProfilePresence(online) {
+  latestPresence = online;
+
+  const dot = document.querySelector("#profilePresence .online-dot");
+  const label = document.getElementById("profilePresenceLabel");
+
+  if (!dot || !label) return;
+
+  if (online === null) {
+    dot.classList.add("offline");
+    label.textContent = "Language partner";
+    return;
+  }
+
+  dot.classList.toggle("offline", !online);
+  label.textContent = online ? "Online" : "Offline";
 }
 
 
@@ -110,6 +214,13 @@ function renderPublicProfile(profile, userId, relationship) {
 
   const displayName = profile?.displayName || "LanguageBridge user";
 
+  const presOnline = latestPresence;
+  const presClass = presOnline === true ? "" : "offline";
+  const presLabel =
+    presOnline === null
+      ? "Language partner"
+      : (presOnline ? "Online" : "Offline");
+
   main.classList.remove("loading-state");
   main.innerHTML = `
     <div class="profile-identity">
@@ -118,7 +229,10 @@ function renderPublicProfile(profile, userId, relationship) {
       </div>
       <div class="profile-heading">
         <h2>${escapeHtml(displayName)}</h2>
-        <div class="profile-handle">Language partner</div>
+        <div class="profile-handle" id="profilePresence">
+          <span class="online-dot ${presClass}"></span>
+          <span id="profilePresenceLabel">${presLabel}</span>
+        </div>
       </div>
       <div class="profile-detail-actions">
         ${relationshipAction(userId, relationship)}
