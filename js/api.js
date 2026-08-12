@@ -1,6 +1,6 @@
 const API_BASE =
   localStorage.getItem("lb_api_base") ||
-  "https://language-bridge-orpin.vercel.app/api/v1";
+  "https://language-bridge.onrender.com/api/v1";
 
 const api = {
   async request(path, options = {}) {

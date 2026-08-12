@@ -1,19 +1,137 @@
-const socket = io("https://language-bridge-orpin.vercel.app", {
-  path: "/api/socket-io/socket.io",
-  transports: ["websocket"]
-});
+/* =========================================================
+   SOCKET.IO CLIENT
+   -----------------------------------------------------------
+   The socket is OPTIONAL: if the chat server is unreachable
+   the page keeps working through REST + a polling fallback.
 
-socket.on("connect", () => {
-  console.log("Socket.IO connected:", socket.id);
-});
+   IMPORTANT: the websocket only works if the backend runs on
+   an always-on Node server (Render/Railway/Fly.io), NOT on
+   Vercel serverless (Vercel never calls httpServer.listen()).
+   ========================================================= */
 
-socket.on("connect_error", (error) => {
-  console.error("Socket.IO connection error:", error);
-});
+const SOCKET_EVENTS = {
+  join: "join:chat",
+  leave: "leave:chat",
+  message: "message:new"
+};
 
-socket.on("disconnect", (reason) => {
-  console.log("Socket.IO disconnected:", reason);
-});
+let socket = null;
+let socketConnected = false;
+let pollFallbackTimer = null;
+
+function createSocket() {
+  if (typeof io !== "function") {
+    console.warn("Socket.IO client library failed to load. Falling back to polling.");
+    return null;
+  }
+
+  let base = String(API_BASE || "");
+
+  if (base.endsWith("/api/v1")) {
+    base = base.slice(0, -"/api/v1".length);
+  }
+
+  base = base.replace(/\/+$/, "");
+
+  const socket = io(base, {
+    path: "/api/socket-io/socket.io",
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 8,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 10000,
+    auth: {
+      token: localStorage.getItem("accessToken") || null
+    },
+    autoConnect: false
+  });
+
+  socket.on("connect", () => {
+    socketConnected = true;
+    console.info("Live: connected to the chat server", socket.id);
+    setSocketStatus("connected", "Live");
+    joinActiveChat();
+    stopPollFallback();
+  });
+
+  socket.on("disconnect", reason => {
+    socketConnected = false;
+    console.info("Chat server disconnected:", reason);
+    setSocketStatus("offline", "Offline");
+    if (reason !== "io client disconnect") {
+      startPollFallback();
+    }
+  });
+
+  socket.on("connect_error", error => {
+    // Log once instead of spamming the console on every retry.
+    console.warn("Chat server unreachable:", error.message);
+    setSocketStatus("connecting", "Reconnecting…");
+    startPollFallback();
+  });
+
+  /*
+   * Incoming message events.
+   * The names below must match the backend. Change them here if
+   * your server.mjs emits a different event name.
+   */
+  [SOCKET_EVENTS.message, "new:message", "chat:message", "message"].forEach(name => {
+    socket.on(name, payload => handleIncomingMessage(payload));
+  });
+
+  socket.connect();
+
+  return socket;
+}
+
+socket = createSocket();
+
+
+function setSocketStatus(state, label) {
+  const chip = document.getElementById("socketStatus");
+
+  if (!chip) return;
+
+  chip.className = `socket-status ${state}`;
+  chip.textContent = label;
+}
+
+function joinActiveChat() {
+  if (!socket || !socketConnected || !window.activeChat) return;
+
+  socket.emit(SOCKET_EVENTS.join, { chatId: window.activeChat });
+}
+
+function handleIncomingMessage(payload) {
+  const chatId = payload?.chatId || payload?.chat_id;
+
+  if (!chatId) return;
+
+  if (String(chatId) === String(window.activeChat)) {
+    refreshMessages(chatId);
+  } else {
+    renderChats(window._chats || []);
+  }
+
+  toast("New message");
+}
+
+function startPollFallback() {
+  if (pollFallbackTimer || socketConnected) return;
+
+  pollFallbackTimer = setInterval(() => {
+    if (socketConnected || !window.activeChat) return;
+    refreshMessages(window.activeChat);
+  }, 5000);
+}
+
+function stopPollFallback() {
+  if (pollFallbackTimer) {
+    clearInterval(pollFallbackTimer);
+    pollFallbackTimer = null;
+  }
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   await initShell("chats");
@@ -29,6 +147,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       </div>
 
       <a href="users.html" class="btn secondary">Find people</a>
+    </div>
+
+    <div class="page-head-actions chat-head-actions">
+      <span id="socketStatus" class="socket-status connecting">Connecting…</span>
     </div>
 
     <div class="chat-layout">
