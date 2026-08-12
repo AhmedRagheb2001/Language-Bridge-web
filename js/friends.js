@@ -233,8 +233,9 @@ async function removeFriend(friendshipId, button) {
     return;
   }
 
-  const confirmed = confirm(
-    "Are you sure you want to remove this friendship?"
+  const confirmed = await confirmDialog(
+    "Remove this friendship? You will have to send a new friend request to reconnect.",
+    { confirmText: "Remove friend" }
   );
 
   if (!confirmed) {

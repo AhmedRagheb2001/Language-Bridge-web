@@ -86,7 +86,10 @@ async function deleteAccount() {
   const user = currentUser();
   if (!user?.id) return;
 
-  const confirmed = confirm("Delete your account permanently? This cannot be undone.");
+  const confirmed = await confirmDialog(
+    "Delete your account permanently? This cannot be undone.",
+    { confirmText: "Delete account" }
+  );
   if (!confirmed) return;
 
   const button = document.getElementById("deleteAccount");

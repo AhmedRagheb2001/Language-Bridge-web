@@ -1,3 +1,20 @@
+const socket = io("https://language-bridge-orpin.vercel.app", {
+  path: "/api/socket-io/socket.io",
+  transports: ["websocket"]
+});
+
+socket.on("connect", () => {
+  console.log("Socket.IO connected:", socket.id);
+});
+
+socket.on("connect_error", (error) => {
+  console.error("Socket.IO connection error:", error);
+});
+
+socket.on("disconnect", (reason) => {
+  console.log("Socket.IO disconnected:", reason);
+});
+
 document.addEventListener("DOMContentLoaded", async () => {
   await initShell("chats");
 

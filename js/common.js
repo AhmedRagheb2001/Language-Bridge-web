@@ -145,6 +145,79 @@ function isAuthenticated() {
 }
 
 
+/*
+ * In-app confirmation dialog.
+ * Works everywhere native confirm() does not (sandboxed
+ * iframes, previews, embedded webviews).
+ * Resolves with true/false.
+ */
+function confirmDialog(message, options = {}) {
+  const {
+    confirmText = "Delete",
+    danger = true
+  } = options;
+
+  return new Promise(resolve => {
+    const modal = document.createElement("div");
+
+    modal.className = "modal";
+
+    modal.innerHTML = `
+      <div
+        class="modal-card confirm-card"
+        role="alertdialog"
+        aria-modal="true"
+      >
+        <div class="modal-header">
+          <div>
+            <span class="eyebrow">Please confirm</span>
+            <h2>Are you sure?</h2>
+          </div>
+
+          <button
+            class="icon-btn modal-close"
+            type="button"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <p class="muted">${escapeHtml(message)}</p>
+
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" data-confirm="no">
+            Cancel
+          </button>
+
+          <button
+            class="btn ${danger ? "danger" : "primary"}"
+            type="button"
+            data-confirm="yes"
+          >
+            ${escapeHtml(confirmText)}
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const close = value => {
+      modal.remove();
+      resolve(value);
+    };
+
+    modal.querySelector("[data-confirm='yes']").addEventListener("click", () => close(true));
+    modal.querySelector("[data-confirm='no']").addEventListener("click", () => close(false));
+    modal.querySelector(".modal-close").addEventListener("click", () => close(false));
+    modal.addEventListener("click", event => {
+      if (event.target === modal) close(false);
+    });
+  });
+}
+
+
 function requireAuth() {
   if (!isAuthenticated()) {
     window.location.replace("login.html");

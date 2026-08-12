@@ -124,7 +124,10 @@ function renderPost(post) {
     : "";
 
   const me = currentUser();
-  const canEdit = me && (me.role === "ADMIN" || post.user?.id === me.id || post.userId === me.id);
+  const canEdit = me && (
+    me.role === "ADMIN" ||
+    String(post.user?.id || post.userId) === String(me.id)
+  );
   const totalLikes = post.totalLikes ?? post._count?.likes;
 
   return `
@@ -262,7 +265,7 @@ function attachPostEvents() {
 async function deletePost(postId, button) {
   if (!postId) return;
 
-  const confirmed = confirm(
+  const confirmed = await confirmDialog(
     "Delete this post? This action cannot be undone."
   );
 

@@ -48,7 +48,10 @@ function renderPostDetail(post) {
   const displayName = profile.displayName || post.user?.username || "LanguageBridge user";
   const totalLikes = post.totalLikes ?? 0;
   const me = currentUser();
-  const canEdit = me && (me.role === "ADMIN" || post.user?.id === me.id || post.userId === me.id);
+  const canEdit = me && (
+    me.role === "ADMIN" ||
+    String(post.user?.id || post.userId) === String(me.id)
+  );
 
   container.innerHTML = `
     <article class="card post post-detail-card" data-post-id="${escapeHtml(post.id)}">
@@ -97,7 +100,7 @@ function renderPostDetail(post) {
 
 
 async function deleteDetailPost(post) {
-  const confirmed = confirm(
+  const confirmed = await confirmDialog(
     "Delete this post? This action cannot be undone."
   );
 
