@@ -51,6 +51,11 @@ const api = {
               localStorage.setItem("refreshToken", data.refreshToken);
             }
 
+            // Update Socket.IO auth token if socket exists
+            if (typeof updateAppSocketAuth === "function") {
+              updateAppSocketAuth();
+            }
+
             return api.request(path, { ...options, _retry: true });
           }
         } catch {

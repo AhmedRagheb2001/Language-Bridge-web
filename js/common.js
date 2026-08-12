@@ -261,6 +261,28 @@ function logout() {
 window.appSocket = null;
 window.appSocketConnected = false;
 
+/* Track presence callbacks for different pages */
+const presenceCallbacks = new Set();
+
+
+function addPresenceCallback(cb) {
+  presenceCallbacks.add(cb);
+}
+
+function removePresenceCallback(cb) {
+  presenceCallbacks.delete(cb);
+}
+
+function emitPresenceUpdate(payload) {
+  presenceCallbacks.forEach(cb => {
+    try {
+      cb(payload);
+    } catch (e) {
+      console.error("Presence callback error:", e);
+    }
+  });
+}
+
 
 async function ensureSocketIO() {
   if (typeof io === "function") return;
@@ -312,6 +334,13 @@ async function connectAppSocket() {
 
   socket.on("connect", () => {
     window.appSocketConnected = true;
+
+    /* Re-emit presence:get for any watched users on reconnect */
+    if (window.appSocketWatchedUsers?.size) {
+      window.appSocketWatchedUsers.forEach(userId => {
+        socket.emit("presence:get", { userId });
+      });
+    }
   });
 
   socket.on("disconnect", () => {
@@ -322,7 +351,13 @@ async function connectAppSocket() {
     window.appSocketConnected = false;
   });
 
+  /* Listen for presence updates from backend */
+  socket.on("presence:update", (payload) => {
+    emitPresenceUpdate(payload);
+  });
+
   window.appSocket = socket;
+  window.appSocketWatchedUsers = new Set();
 
   return socket;
 }
@@ -332,6 +367,36 @@ async function ensureAppSocket() {
   if (window.appSocket) return window.appSocket;
 
   return connectAppSocket();
+}
+
+
+/* Call this when access token is refreshed */
+function updateAppSocketAuth() {
+  if (window.appSocket?.io) {
+    window.appSocket.io.opts.auth = {
+      token: localStorage.getItem("accessToken") || null
+    };
+  }
+}
+
+/* Call this to watch a specific user's presence */
+function watchUserPresence(userId) {
+  if (!userId) return;
+
+  const socket = window.appSocket;
+  if (!socket) return;
+
+  window.appSocketWatchedUsers.add(String(userId));
+
+  if (window.appSocketConnected) {
+    socket.emit("presence:get", { userId });
+  }
+}
+
+function unwatchUserPresence(userId) {
+  if (!userId) return;
+
+  window.appSocketWatchedUsers?.delete(String(userId));
 }
 
 

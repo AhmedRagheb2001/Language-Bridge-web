@@ -1,5 +1,5 @@
 /* =========================================================
-   SOCKET.IO CLIENT
+   SOCKET.IO CLIENT (uses global window.appSocket)
    -----------------------------------------------------------
    The socket is OPTIONAL: if the chat server is unreachable
    the page keeps working through REST + a polling fallback.
@@ -18,7 +18,6 @@ const SOCKET_EVENTS = {
   presence: "presence:update"
 };
 
-let socket = null;
 let socketConnected = false;
 let pollFallbackTimer = null;
 
@@ -28,57 +27,46 @@ let isTyping = false;
 let typingHideTimer = null;
 const presenceMap = new Map(); /* userId -> boolean (online) */
 
-function createSocket() {
-  if (typeof io !== "function") {
-    console.warn(
-      "Socket.IO client library failed to load. Falling back to polling."
-    );
-    return null;
+/* Get the global app socket, initializing if needed */
+async function getAppSocket() {
+  if (!window.appSocket) {
+    await ensureAppSocket();
   }
+  return window.appSocket;
+}
 
-  let base = String(API_BASE || "");
+function setSocketConnected(connected) {
+  socketConnected = connected;
+}
 
-  if (base.endsWith("/api/v1")) {
-    base = base.slice(0, -"/api/v1".length);
-  }
+function getSocket() {
+  return window.appSocket;
+}
 
-  base = base.replace(/\/+$/, "");
+function setSocketStatus(state, label) {
+  const chip = document.getElementById("socketStatus");
 
-  const socket = io(base, {
-    path: "/api/socket-io/socket.io",
-    transports: ["websocket", "polling"],
-    reconnection: true,
-    reconnectionAttempts: 8,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    timeout: 10000,
-    auth: {
-      token: localStorage.getItem("accessToken") || null
-    },
-    autoConnect: false
-  });
+  if (!chip) return;
 
+  chip.className = `socket-status ${state}`;
+  chip.textContent = label;
+}
+
+/* Initialize socket event listeners for chat */
+async function initChatSocket() {
+  const socket = await getAppSocket();
+  if (!socket) return;
+
+  /* Set up connection state handlers */
   socket.on("connect", () => {
-    socketConnected = true;
-
-    console.info("Live: connected to the chat server", socket.id);
-
+    setSocketConnected(true);
     setSocketStatus("connected", "Live");
-
-    /*
-     * If a chat was already selected before the socket connected,
-     * join that chat room now.
-     */
     joinActiveChat();
-
     stopPollFallback();
   });
 
   socket.on("disconnect", reason => {
-    socketConnected = false;
-
-    console.info("Chat server disconnected:", reason);
-
+    setSocketConnected(false);
     setSocketStatus("offline", "Offline");
 
     if (reason !== "io client disconnect") {
@@ -87,11 +75,8 @@ function createSocket() {
   });
 
   socket.on("connect_error", error => {
-    // Log once instead of spamming the console on every retry.
     console.warn("Chat server unreachable:", error.message);
-
     setSocketStatus("connecting", "Reconnecting…");
-
     startPollFallback();
   });
 
@@ -129,9 +114,7 @@ function createSocket() {
   });
 
   /*
-   * Presence events. The backend should push the online/offline
-   * state of users, either as a single { userId, online } object
-   * or a bulk { users: [{ id, online }] } payload.
+   * Presence events.
    */
   [
     SOCKET_EVENTS.presence,
@@ -142,21 +125,6 @@ function createSocket() {
   ].forEach(name => {
     socket.on(name, payload => handlePresence(payload));
   });
-
-  socket.connect();
-
-  return socket;
-}
-
-socket = createSocket();
-
-function setSocketStatus(state, label) {
-  const chip = document.getElementById("socketStatus");
-
-  if (!chip) return;
-
-  chip.className = `socket-status ${state}`;
-  chip.textContent = label;
 }
 
 /*
@@ -167,6 +135,7 @@ function setSocketStatus(state, label) {
  * 2. The page already has an active chat when the socket connects.
  */
 function joinActiveChat() {
+  const socket = getSocket();
   if (!socket || !socketConnected || !window.activeChat) {
     return;
   }
@@ -198,6 +167,7 @@ function handleIncomingMessage(payload) {
    ========================================================= */
 
 function emitTyping() {
+  const socket = getSocket();
   if (!socket || !socketConnected || !window.activeChat) return;
 
   if (!isTyping) {
@@ -219,6 +189,7 @@ function emitTyping() {
 
 
 function stopTyping() {
+  const socket = getSocket();
   if (isTyping && socket && socketConnected && window.activeChat) {
     socket.emit(SOCKET_EVENTS.typingStop, {
       chatId: window.activeChat,
@@ -460,6 +431,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderChats(chats);
 
+    /* Initialize chat socket after shell is ready */
+    await initChatSocket();
+
     const chatId = new URLSearchParams(location.search).get("chat");
 
     if (chatId) {
@@ -577,6 +551,7 @@ async function openChat(id) {
    * User clicks chat B
    * Leave A first.
    */
+  const socket = getSocket();
   if (
     socket &&
     socketConnected &&
@@ -600,8 +575,9 @@ async function openChat(id) {
    *
    * This is the important Step 3 change.
    */
-  if (socket && socketConnected) {
-    socket.emit(SOCKET_EVENTS.join, {
+  const socket2 = getSocket();
+  if (socket2 && socketConnected) {
+    socket2.emit(SOCKET_EVENTS.join, {
       chatId: id
     });
 
