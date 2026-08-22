@@ -104,11 +104,11 @@ async function handleRegister(event) {
       username: formData.get("username"),
       email: formData.get("email"),
       password,
-      // Role is intentionally never taken from the form: letting a public
-      // sign-up page pick its own privilege level is a security bug.
-      // Every self-registered account is a plain USER; promote to ADMIN
-      // server-side only.
-      role: "USER",
+      // Role is intentionally never sent from the client: letting a public
+      // sign-up page influence its own privilege level is a security bug.
+      // The backend assigns every self-registered account the default USER
+      // role and only promotes to ADMIN server-side. Sending a role here
+      // previously triggered a "role is not allowed" error.
       displayName: formData.get("displayName"),
       bio: formData.get("bio") || null,
       nativeLanguage: formData.get("nativeLanguage"),
