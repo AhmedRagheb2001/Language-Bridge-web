@@ -97,11 +97,27 @@ async function handleRegister(event) {
     return;
   }
 
+  const usernameVal = formData.get("username");
+  const displayNameVal = formData.get("displayName");
+  const bioValue = formData.get("bio");
+
+  if (!/^[a-zA-Z0-9]+$/.test(usernameVal)) {
+    showFormError(error, "Username may only contain letters and numbers (no spaces or symbols).");
+    setFormLoading(button, false);
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9]+$/.test(displayNameVal)) {
+    showFormError(error, "Display name may only contain letters and numbers (no spaces or symbols).");
+    setFormLoading(button, false);
+    return;
+  }
+
   setFormLoading(button, true, "Creating account...");
 
   try {
     await api.post("/auth/register", {
-      username: formData.get("username"),
+      username: usernameVal,
       email: formData.get("email"),
       password,
       // Role is intentionally never sent from the client: letting a public
@@ -109,11 +125,11 @@ async function handleRegister(event) {
       // The backend assigns every self-registered account the default USER
       // role and only promotes to ADMIN server-side. Sending a role here
       // previously triggered a "role is not allowed" error.
-      displayName: formData.get("displayName"),
-      bio: formData.get("bio") || null,
+      displayName: displayNameVal,
+      ...(bioValue ? { bio: bioValue } : {}),
       nativeLanguage: formData.get("nativeLanguage"),
       learningLanguage: formData.get("learningLanguage"),
-      profilePictureUrl: null
+      // profilePictureUrl omitted (backend rejects this key)
     });
 
     /*

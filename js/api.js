@@ -1,6 +1,6 @@
 const API_BASE =
   localStorage.getItem("lb_api_base") ||
-  "https://language-bridge-1.onrender.com/api/v1";
+  "https://language-bridge-backend.onrender.com/api/v1";
 
 const api = {
   async request(path, options = {}) {
